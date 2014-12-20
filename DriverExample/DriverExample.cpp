@@ -18,13 +18,21 @@
 	wizard. To get information about BazisLib, see its website:
 		http://bazislib.sysprogs.org/ cdsdf sd
 */
+#define FILE_DEVICE_UNKNOWN             0x00000022
+#define IOCTL_UNKNOWN_BASE              FILE_DEVICE_UNKNOWN
+#define IOCTL_PROCOBSRV_GET_PROCINFO    \
+	CTL_CODE(IOCTL_UNKNOWN_BASE, 0x0801, METHOD_BUFFERED, FILE_READ_ACCESS | FILE_WRITE_ACCESS)
+
 
 void DriverExampleUnload(IN PDRIVER_OBJECT DriverObject);
+NTSTATUS DriverExampleDispatchIoctl(	IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp	);
 NTSTATUS DriverExampleCreateClose(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 NTSTATUS DriverExampleDefaultHandler(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 NTSTATUS DriverExampleAddDevice(IN PDRIVER_OBJECT  DriverObject, IN PDEVICE_OBJECT  PhysicalDeviceObject);
 NTSTATUS DriverExamplePnP(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 void NotifyRoutine(IN HANDLE ParentId,IN HANDLE ProcessId,IN BOOLEAN Create);
+
+PDEVICE_OBJECT g_pDeviceObject;
 
 typedef struct _deviceExtension
 {
@@ -32,7 +40,25 @@ typedef struct _deviceExtension
 	PDEVICE_OBJECT TargetDeviceObject;
 	PDEVICE_OBJECT PhysicalDeviceObject;
 	UNICODE_STRING DeviceInterface;
+
+	HANDLE  hProcessId;
+	//
+	// Process section data
+
+    PKEVENT ProcessEvent;
+    HANDLE  hParentId;
+    BOOLEAN bCreate;
 } DriverExample_DEVICE_EXTENSION, *PDriverExample_DEVICE_EXTENSION;
+
+
+
+typedef struct _ProcessCallbackInfo
+{
+    HANDLE  hParentId;
+    HANDLE  hProcessId;
+    BOOLEAN bCreate;
+} PROCESS_CALLBACK_INFO, *PPROCESS_CALLBACK_INFO;
+
 
 bool init;
 
@@ -55,6 +81,8 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING  Registr
 	DriverObject->MajorFunction[IRP_MJ_CREATE] = DriverExampleCreateClose;
 	DriverObject->MajorFunction[IRP_MJ_CLOSE] = DriverExampleCreateClose;
 	DriverObject->MajorFunction[IRP_MJ_PNP] = DriverExamplePnP;
+	DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DriverExampleDispatchIoctl;
+
 
 	DriverObject->DriverUnload = DriverExampleUnload;
 	DriverObject->DriverStartIo = NULL;
@@ -66,92 +94,25 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING  Registr
 	DbgPrint("Driver Start!\n");
 	return STATUS_SUCCESS;
 }
-void GetProcessEXEName(ULONG PID)
-{
-    PSECTION_OBJECT                     sec1;
-    PFILE_OBJECT                        fobj;
-   // UNICODE_STRING                      devname;
-   // ULONG                               bytesIO;
-   // WCHAR                               textbuf[260];
-    NTSTATUS st;
-    PEPROCESS Process;
-    ULONG retLen;
-    PUNICODE_STRING us = NULL;
-
- st = PsLookupProcessByProcessId((HANDLE)PID, &Process);
-
-  if (!NT_SUCCESS(st)) return;
-
-    sec1 = Process->SectionObject;
-
-    if ( MmIsAddressValid(sec1) )
-    {
-             DbgPrint("sec1 ok...\n");
-        if ( MmIsAddressValid(sec1->Segment) )
-
-        {
-             DbgPrint("sec1->Segment ok...\n");
-            if ( MmIsAddressValid( ((PSEGMENT)sec1->Segment)->ControlArea ) )
-
-            {
-                DbgPrint("sec1->Segment)->ControlArea ok...\n");
-                fobj = ((PSEGMENT)sec1->Segment)->ControlArea->FilePointer;
-
-                if ( !MmIsAddressValid(fobj) ) return;
-else
-
- DbgPrint("sec1->Segment)->ControlArea->FilePointer ok...\n");
-
-st = ObQueryNameString(fobj,
-                  (POBJECT_NAME_INFORMATION)us,
-                  0,
-                  &retLen);
-
-if (st != STATUS_INFO_LENGTH_MISMATCH) return;
-
-  us = ExAllocatePoolWithTag(NonPagedPool, retLen, 'blah');
-
- if (!us) return;
-
-st = ObQueryNameString(fobj, 
-                   (POBJECT_NAME_INFORMATION)us, 
-                   retLen, 
-                  &retLen);
-
-if (NT_SUCCESS(st)) {
-
- DbgPrint("%wZ\n", us);
-
-}
-
-ExFreePoolWithTag(us, 'blah');
-
-  // ObQueryNameString(fobj, (POBJECT_NAME_INFORMATION)&textbuf, 260 * sizeof(WCHAR), &bytesIO);
-
-  // DbgPrint("%ws\n", textbuf);
-
-}
-}
-}
-  ObDereferenceObject(Process);
-}
-bool CheckProcessName(HANDLE ProcessId)
-{
-	return 0;
-}
 
 void NotifyRoutine(IN HANDLE ParentId,IN HANDLE ProcessId,IN BOOLEAN Create)
 {
+	PDriverExample_DEVICE_EXTENSION extension;
+	extension = (PDriverExample_DEVICE_EXTENSION)g_pDeviceObject->DeviceExtension;
 	
+    extension->hParentId  = ParentId;
+    extension->hProcessId = ProcessId;
+    extension->bCreate    = Create;
+	
+    KeSetEvent(extension->ProcessEvent, 0, FALSE);
+    KeClearEvent(extension->ProcessEvent);
 	if(Create)
 	{
 		DbgPrint("NotifyRoutine: a new process was created");
-		DbgPrint(GetProcessEXEName(ProcessId));
 	}
 	else
 	{
 		DbgPrint("NotifyRoutine: process was closed");
-		DbgPrint(GetProcessEXEName(ProcessId));
 	}
 }
 
@@ -196,6 +157,8 @@ NTSTATUS DriverExampleAddDevice(IN PDRIVER_OBJECT  DriverObject, IN PDEVICE_OBJE
 	if (!NT_SUCCESS(status))
 		return status;
 
+	g_pDeviceObject = DeviceObject; //Save Device object
+
 	pExtension = (PDriverExample_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
 	pExtension->DeviceObject = DeviceObject;
@@ -204,6 +167,22 @@ NTSTATUS DriverExampleAddDevice(IN PDRIVER_OBJECT  DriverObject, IN PDEVICE_OBJE
 
 	status = IoRegisterDeviceInterface(PhysicalDeviceObject, &GUID_DriverExampleInterface, NULL, &pExtension->DeviceInterface);
 	ASSERT(NT_SUCCESS(status));
+
+	UNICODE_STRING uszProcessEventString;
+	HANDLE hProcessHandle;
+
+	RtlInitUnicodeString(
+		&uszProcessEventString, 
+		L"\\BaseNamedObjects\\ProcessEvent"
+		);
+    pExtension->ProcessEvent = IoCreateNotificationEvent(
+		&uszProcessEventString, 
+		&hProcessHandle
+		);
+	//
+    // Clear it out
+	//
+    KeClearEvent(pExtension->ProcessEvent);
 
 	DeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
 	return STATUS_SUCCESS;
@@ -290,3 +269,52 @@ NTSTATUS DriverExamplePnP(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	}
 	return DriverExampleDefaultHandler(DeviceObject, Irp);
 }
+
+NTSTATUS DriverExampleDispatchIoctl(
+	IN PDEVICE_OBJECT DeviceObject, 
+	IN PIRP           Irp
+	)
+{
+    NTSTATUS               ntStatus = STATUS_UNSUCCESSFUL;
+    PIO_STACK_LOCATION     irpStack  = IoGetCurrentIrpStackLocation(Irp);//получения указателя на стек IRP пакета используется функция:
+    PDriverExample_DEVICE_EXTENSION      extension = (PDriverExample_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
+    PPROCESS_CALLBACK_INFO pProcCallbackInfo;
+	//
+    // These IOCTL handlers are the set and get interfaces between
+    // the driver and the user mode app
+
+    switch(irpStack->Parameters.DeviceIoControl.IoControlCode)//получение управляющего IOCTL кода;
+    {
+		case IOCTL_PROCOBSRV_GET_PROCINFO:
+			{
+				if (irpStack->Parameters.DeviceIoControl.OutputBufferLength >=// получение размера буфера которое ожидает приложение
+				   sizeof(PROCESS_CALLBACK_INFO))
+				{
+					pProcCallbackInfo = (PPROCESS_CALLBACK_INFO)Irp->AssociatedIrp.SystemBuffer;//получение переданного буфера
+					pProcCallbackInfo->hParentId  = extension->hParentId;
+					pProcCallbackInfo->hProcessId = extension->hProcessId;
+					pProcCallbackInfo->bCreate    = extension->bCreate;
+    
+					ntStatus = STATUS_SUCCESS;
+				}
+				break;
+			}
+
+        default:
+            break;
+    }
+
+    Irp->IoStatus.Status = ntStatus;
+	//
+    // Set number of bytes to copy back to user-mode
+
+    if(ntStatus == STATUS_SUCCESS)
+        Irp->IoStatus.Information = //количество переданных байт.
+			irpStack->Parameters.DeviceIoControl.OutputBufferLength;
+    else
+        Irp->IoStatus.Information = 0;
+
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return ntStatus;
+}
+
