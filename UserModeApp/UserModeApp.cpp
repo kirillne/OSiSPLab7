@@ -2,6 +2,7 @@
 //
 
 #include "stdafx.h"
+#include <map>
 
 
 #define FILE_DEVICE_UNKNOWN             0x00000022
@@ -20,6 +21,7 @@ typedef struct _ProcessCallbackInfo
 
 HANDLE  hDriverFile;
 HANDLE	hEvent;
+std::map< DWORD, HANDLE> openedProcesses;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -65,32 +67,48 @@ int _tmain(int argc, _TCHAR* argv[])
 			TRUE
 			);
 
-			HANDLE Handle = OpenProcess(
+		HANDLE Handle = OpenProcess(
 				PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
 				FALSE,
 				callbackInfo.hProcessId 
 			);
+		
+		GetModuleFileNameEx(Handle, 0, szFileName, MAX_PATH);
 			
-			GetModuleFileNameEx(Handle, 0, szFileName, MAX_PATH);
-			
-            CloseHandle(Handle);
 
-		/*if (wcscmp (szFileName,ProcessName)== 0) //Функция wcscmp является эквивалентом функции strcmp для широких символов. Она сравнивает строку широких символов, на которую указывает s1, со строкой широких символов, на которую указывает s2.  
+		if (!wcscmp(szFileName,TEXT("C:\\WINDOWS\\system32\\notepad.exe")))   
 		{
-			if (callbackInfo.bCreate == true)
+			if (callbackInfo.bCreate == TRUE)
 			{
-				MessageBoxA (0,"Калькулятор запущен","",0);
-				STARTUPINFO si = { sizeof(si) };
-				PROCESS_INFORMATION pi; 
-				CreateProcess(NULL, TEXT("WINMINE"), NULL, NULL, FALSE, 0, NULL. NULL, &si, &pi);
+				STARTUPINFO startupInfo;
+				PROCESS_INFORMATION piProcess;
+				ZeroMemory( &startupInfo, sizeof(startupInfo) );
+				startupInfo.cb = sizeof(startupInfo);
+				ZeroMemory( &piProcess, sizeof(piProcess) );
+				SECURITY_ATTRIBUTES saProcess, saThread;
+				saProcess.nLength = sizeof(saProcess);
+				saProcess.lpSecurityDescriptor = NULL;
+				saProcess.bInheritHandle = TRUE;
+				saThread.nLength = sizeof(saThread);
+				saThread.lpSecurityDescriptor = NULL;
+				saThread.bInheritHandle = FALSE;
+	
+				TCHAR commandLine[] = L"";
+				TCHAR applicationPath[] = L"C:\\Windows\\system32\\calc.exe";
+
+				CreateProcess(applicationPath, commandLine, 
+					&saProcess, &saThread, FALSE, 0, NULL, NULL, &startupInfo, &piProcess);
+				openedProcesses.insert ( std::pair<DWORD,HANDLE>(callbackInfo.hProcessId ,piProcess.hProcess) );
 				
 			}
 			else
 			{
-				MessageBoxA (0,"Калькулятор закрыт","",0);
+				;
 			}
-		}*/
-		std::cout << szFileName << " Created";
+		}
+        CloseHandle(Handle);
+
+		
 	}
 	return 0;
 }

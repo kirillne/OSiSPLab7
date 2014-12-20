@@ -145,14 +145,25 @@ NTSTATUS DriverExampleAddDevice(IN PDRIVER_OBJECT  DriverObject, IN PDEVICE_OBJE
 	PDEVICE_OBJECT DeviceObject = NULL;
 	PDriverExample_DEVICE_EXTENSION pExtension = NULL;
 	NTSTATUS status;
+	UNICODE_STRING uszDriverString;
+	RtlInitUnicodeString(&uszDriverString, L"\\Device\\DriverExample");// Задача функции RtlInitUnicodeString измерить unicode-строку и заполнить 
+	
 	
 	status = IoCreateDevice(DriverObject,
 						    sizeof(DriverExample_DEVICE_EXTENSION),
-							NULL,
+							&uszDriverString,
 							FILE_DEVICE_UNKNOWN,
 							0,
 							0,
 							&DeviceObject);
+	
+	UNICODE_STRING uszDeviceString;
+
+	RtlInitUnicodeString(&uszDeviceString, L"\\DosDevices\\DriverExample");
+    //
+	// Create symbolic link to the user-visible name
+
+    status = IoCreateSymbolicLink(&uszDeviceString, &uszDriverString);
 
 	if (!NT_SUCCESS(status))
 		return status;

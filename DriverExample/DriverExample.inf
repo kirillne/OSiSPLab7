@@ -3,7 +3,7 @@ Signature="$WINDOWS NT$"
 Class=HDC
 ClassGuid={4d36e96a-e325-11ce-bfc1-08002be10318}
 Provider=%VisualDDK%
-DriverVer=01/01/1901, 1.00.0004
+DriverVer=01/01/1901, 1.00.0007
 CatalogFile=DriverExample.cat
 
 [DestinationDirs]
