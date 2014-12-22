@@ -1,0 +1,58 @@
+[Version]
+Signature="$WINDOWS NT$"
+Class=HDC
+ClassGuid={4d36e96a-e325-11ce-bfc1-08002be10318}
+Provider=%VisualDDK%
+DriverVer=01/01/1901, 1.00.0007
+CatalogFile=DriverExample.cat
+
+[DestinationDirs]
+DefaultDestDir = 12
+
+[SourceDisksNames.x86]
+1 = %DiskId1%,,,
+
+[SourceDisksNames.amd64]
+1 = %DiskId1%,,,
+
+[SourceDisksFiles.x86]
+DriverExample.sys  = 1,\x86
+
+[SourceDisksFiles.amd64]
+DriverExample.sys  = 1,\x64
+
+[Manufacturer]
+%VisualDDK%=Standard, NTamd64
+
+[Standard]
+%DriverExample.DeviceDesc%=DriverExample_Device, root\DriverExample
+
+[Standard.NTamd64]
+%DriverExample.DeviceDesc%=DriverExample_Device, root\DriverExample
+
+[DriverExample_Device.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+DriverExample.sys,,,2
+
+;-------------- Service installation
+[DriverExample_Device.NT.Services]
+AddService = DriverExample,%SPSVCINST_ASSOCSERVICE%, dev_Service_Inst
+
+; -------------- busenum driver install sections
+[dev_Service_Inst]
+DisplayName    = %dev.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START 
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\DriverExample.sys
+LoadOrderGroup = Extended Base
+
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+VisualDDK = "VisualDDK"
+DiskId1 = "DriverExample Installation Disk #1"
+DriverExample.DeviceDesc = "DriverExample device"
+dev.SVCDESC = "DriverExample driver"

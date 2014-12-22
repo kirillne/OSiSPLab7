@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DriverExample", "DriverExample.vcproj", "{65A5C59D-9749-4557-901B-FE45ECAF8E0A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UserModeApp", "..\UserModeApp\UserModeApp.vcproj", "{E7303201-1946-45F2-9264-AE4A5EEEEDE2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{65A5C59D-9749-4557-901B-FE45ECAF8E0A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{65A5C59D-9749-4557-901B-FE45ECAF8E0A}.Debug|Win32.Build.0 = Debug|Win32
+		{65A5C59D-9749-4557-901B-FE45ECAF8E0A}.Release|Win32.ActiveCfg = Release|Win32
+		{65A5C59D-9749-4557-901B-FE45ECAF8E0A}.Release|Win32.Build.0 = Release|Win32
+		{E7303201-1946-45F2-9264-AE4A5EEEEDE2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E7303201-1946-45F2-9264-AE4A5EEEEDE2}.Debug|Win32.Build.0 = Debug|Win32
+		{E7303201-1946-45F2-9264-AE4A5EEEEDE2}.Release|Win32.ActiveCfg = Release|Win32
+		{E7303201-1946-45F2-9264-AE4A5EEEEDE2}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
