@@ -123,6 +123,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			}
 			else
 			{
+
 				std::map<DWORD,HANDLE>::iterator iter = openedProcesses.find(callbackInfo.hProcessId);
 				if(iter != openedProcesses.end())
 				{
